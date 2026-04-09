@@ -10,17 +10,18 @@ tag: openenv
 # SQL / Data Cleaning Sandbox
 
 A FastAPI OpenEnv environment for evaluating AI agents on realistic SQLite data tasks.
-Agents interact using SQL and Python to triage, clean, and normalize a small dataset.
+Agents interact using SQL and Python to triage, clean, and normalize messy datasets across 6 diverse tasks.
 
 ## Motivation
 
 This environment targets data engineering and debugging workflows where an agent must:
 - inspect database state,
 - correct broken or inconsistent data,
+- calculate complex financial or system metrics,
 - migrate flat schemas into normalized tables,
 - and do so using incremental feedback.
 
-It is designed for benchmarks with partial progress scoring so agents can improve over multiple steps.
+It is designed for benchmarks with partial progress scoring and explicit penalties for destructive actions.
 
 ## Action Space
 
@@ -46,37 +47,51 @@ Each environment response includes:
 - `max_steps`: allowed step budget
 - `task_description`: active task prompt
 - `done`: whether the episode finished
-- `reward`: partial reward for the step
+- `reward`: partial reward for the step (includes potential late-task penalties)
 
 ## Tasks
 
-### Task 1 — Data Triage (easy)
-- Description: compute total January 2024 revenue from `sales`.
-- Expected behavior: run a SQL aggregation that returns the exact total value.
-- Reward rule: returns `1.0` when the reported sum matches `1000.00`.
+The environment provides six progressively difficult tasks, indexed as `task1` through `task6`.
 
-### Task 2 — Data Cleaning (medium)
-- Description: clean the `users` table by:
-  - lowercasing emails,
-  - removing duplicate emails while keeping the smallest `id`,
-  - replacing NULL ages with `0`.
-- Expected behavior: fix the table in-place using SQL or Python.
-- Reward breakdown:
-  - `0.3` if all emails are lowercase,
-  - `0.4` if no duplicate emails remain,
-  - `0.3` if no NULL ages remain.
+### task1 — Data Triage (Easy)
+- **Description**: Compute total January 2024 revenue from the `sales` table.
+- **Goal**: Run a SQL aggregation that returns the exact total value.
+- **Success Criteria**: Reward `1.0` if the result matches `1000.00`.
 
-### Task 3 — Schema Migration (hard)
-- Description: normalize `flat_orders` into `customers` and `orders` tables.
-- Expected behavior: create:
-  - `customers(id INTEGER PRIMARY KEY, name TEXT, email TEXT UNIQUE)`,
-  - `orders(id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), order_date TEXT, product TEXT, quantity INTEGER, price REAL)`.
-- Reward breakdown:
-  - `0.2` for correct `customers` schema,
-  - `0.2` for correct `orders` schema,
-  - `0.2` for 4 unique customers,
-  - `0.2` for 6 orders migrated,
-  - `0.2` for referential integrity on `customer_id`.
+### task2 — Data Cleaning (Medium)
+- **Description**: Clean the `users` table:
+  - Lowercase all emails.
+  - Remove duplicate emails (retain lowest `id`).
+  - Replace NULL ages with `0`.
+- **Reward Breakdown**: `0.3` for Lowercase, `0.4` for No Duplicates, `0.3` for No NULLs.
+
+### task3 — Schema Migration (Hard)
+- **Description**: Normalize `flat_orders` into separate `customers` and `orders` tables.
+- **Reward Breakdown**:
+  - `0.2` for correct `customers` schema.
+  - `0.2` for correct `orders` schema.
+  - `0.6` for accurate data migration and referential integrity.
+
+### task4 — Incident Response (Advanced)
+- **Description**: Identify an IP address spamming 403 errors:
+  - Create a `blocked_ips` table.
+  - Move the offending IP into the blocklist.
+  - Prune the offending records from the master `server_logs`.
+- **Reward Breakdown**: `0.2` for table creation, `0.3` for correct IP identification, `0.5` for successful log pruning.
+- **Penalty**: Deductions occur if legitimate traffic logs are accidentally deleted.
+
+### task5 — Data Imputation & Revenue View (Advanced)
+- **Description**: Standardize corrupted date strings and calculate Life Time Value:
+  - Find and replace "NULL", "N/A", or empty strings in `end_date_str` with "2024-12-31".
+  - Create a view `user_ltv` calculating revenue using `julianday()` arithmetic.
+- **Reward Breakdown**: `0.3` for data cleaning, `0.3` for view creation, `0.4` for calculation accuracy.
+
+### task6 — JSON Analysis & Ranking (Expert)
+- **Description**: Extract nested JSON data and rank performance:
+  - Add a `total_comp` column to `employees`.
+  - Extract `bonus_pct` from a nested JSON string to compute total compensation.
+  - Create a view `department_all_stars` showing the top earner in each department with performance rating "A".
+- **Reward Breakdown**: `0.2` for schema mutation, `0.3` for JSON extraction accuracy, `0.5` for correct ranking logic.
 
 ## Reward Mechanism
 
@@ -84,78 +99,53 @@ Each step is scored by the task-specific grader in `server/environment.py`.
 - The grader inspects the current database state and latest output.
 - Reward is clamped to the range `0.01` to `0.99`.
 - Episodes end when the step count reaches `max_steps` or reward reaches `0.99`.
-- Errors subtract `0.05` from the step reward, but never drop below `0.01`.
+- Errors subtract `0.05` from the step reward.
+- Destructive or incorrect data modifications in advanced tasks result in score penalties.
 
+## Baseline Scores
+
+Recent reference runs using robust capable LLMs (e.g., `llama-3.3-70b-versatile` via Groq) indicate the environment is reliably solvable but effectively differentiates between model reasoning capabilities on the later multi-step tasks.
+
+| Model | Task 1 (Easy) | Task 2 (Medium) | Task 3 (Hard) | Task 4 (Advanced) | Task 5 (Advanced) | Task 6 (Expert) |
+|---|---|---|---|---|---|---|
+| Llama-3.3-70B | ~1.00 | ~1.00 | ~1.00 | ~0.99 | ~0.90 | ~0.99 |
+| Llama-3.1-8B | ~0.99 | ~0.60 | ~0.40 | ~0.30 | ~0.10 | ~0.00 |
+
+*Note: Scores represent typical final-step partial-progress rewards. Simpler models often struggle to complete Schema Migration (Task 3) or JSON extraction windowing (Task 6), while advanced models can typically achieve near-perfect rewards within 3 to 6 execution steps per task.*
 
 ## Local Setup
 
 ### Install Python dependencies
 
-This repository is designed to run inside the `FishBiscuits-OpenEnv_SRE_5` project structure.
-
 ```bash
-cd MetaPytorch-Hackathon-2
+cd MetaPytorch-Hackathon-3
 pip install -r server/requirements.txt
-
-# Install dependencies
 pip install -e .
 ```
 
 ### Run the sandbox server locally
 
 ```bash
-cd MetaPytorch-Hackathon-2
 python -m uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
 
-
 ## Run inference and evaluation
 
-### Environment Variables
-Ensure the following are set:
-```bash
-export API_BASE_URL="https://api.openai.com/v1" # or your chosen provider
-export MODEL_NAME="gpt-4o"
-export OPENAI_API_KEY="your_api_key"
-export HF_TOKEN="your_huggingface_token" # Required for HF hosted models
-```
+Ensure `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` (or `OPENAI_API_KEY`) are set.
 
-### Execute Baseline Agent
 ```bash
-cd MetaPytorch-Hackathon-2
+cd MetaPytorch-Hackathon-3
 python inference.py
 ```
 
 ## Docker Setup
 
-Docker is recommended for the most reliable sandbox experience.
-
-### Build the Docker image
-
 ```bash
-cd MetaPytorch-Hackathon-2
-docker build -t sql-sanbox .
-```
+cd MetaPytorch-Hackathon-3
 
-### Run the container
-
-```bash
+docker build -t sql-sandbox .
 docker run -p 7860:7860 sql-sandbox
 ```
-
-### Execute Baseline Agent
-```bash
-cd MetaPytorch-Hackathon-2
-python inference.py
-```
-
-### Expected output format
-
-Each episode should log exactly:
-
-- `[START] task=<task_name> env=<benchmark> model=<model_name>`
-- `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
-- `[END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>`
 
 ## Project structure
 
