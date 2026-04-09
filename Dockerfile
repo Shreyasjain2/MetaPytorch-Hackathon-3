@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # OpenEnv needs the workspace in PYTHONPATH
 ENV PYTHONPATH="/app"
 # Default fallback task
-ENV TASK_ID="easy"
+ENV TASK_ID="task1"
 
 # Hugging Face Spaces exposes port 7860
 EXPOSE 7860

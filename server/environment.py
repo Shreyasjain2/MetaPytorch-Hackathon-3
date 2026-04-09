@@ -435,6 +435,8 @@ class SqlSandboxEnvironment(Environment):
         self._db_path = os.path.join(tempfile.gettempdir(), f"sqlsandbox_{uuid4().hex[:8]}.db")
         self._conn: sqlite3.Connection | None = None
         self._task_id = os.environ.get("TASK_ID", "task1")
+        if self._task_id not in TASKS:
+            self._task_id = "task1"
         self._task = TASKS[self._task_id]
         self._max_steps = self._task["max_steps"]
         self._done = False
@@ -503,8 +505,9 @@ class SqlSandboxEnvironment(Environment):
             self._conn = None
 
         # 2. Update task context from kwargs (primary) or environment (fallback)
-        # This is the fix for the 'Easy task persistence' bug.
         self._task_id = kwargs.get("task_id", os.environ.get("TASK_ID", "task1"))
+        if self._task_id not in TASKS:
+            self._task_id = "task1"
         self._task = TASKS[self._task_id]
         self._max_steps = self._task["max_steps"]
 

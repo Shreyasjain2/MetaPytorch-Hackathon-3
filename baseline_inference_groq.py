@@ -195,7 +195,7 @@ def main():
         print("ERROR: GROQ_API_KEY environment variable is not set.")
         sys.exit(1)
 
-    for task in ["easy", "medium", "hard"]:
+    for task in [f"task{i}" for i in range(1, 7)]:
         _run_task_agent(args.url, task, args.max_turns)
 
 

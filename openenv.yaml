@@ -7,8 +7,8 @@ port: 7860
 
 description: >
   SQL/Data Cleaning Sandbox  a real-world OpenEnv environment where AI agents
-  clean messy databases via SQL and Python. Three tasks from easy to hard with
-  partial-progress grading.
+  clean messy databases via SQL and Python. Six tasks from basic to advanced with
+  partial-progress grading and penalties.
 
 reward_range: [0.0, 1.0]
 
