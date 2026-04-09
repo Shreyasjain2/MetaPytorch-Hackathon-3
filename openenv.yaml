@@ -1,0 +1,47 @@
+spec_version: 1
+name: sql_sandbox
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+
+description: >
+  SQL/Data Cleaning Sandbox  a real-world OpenEnv environment where AI agents
+  clean messy databases via SQL and Python. Three tasks from easy to hard with
+  partial-progress grading.
+
+reward_range: [0.0, 1.0]
+
+tasks:
+  - id: easy
+    name: Data Triage
+    grader: "server.environment:grade_easy"
+  - id: medium
+    name: Data Cleaning
+    grader: "server.environment:grade_medium"
+  - id: hard
+    name: Schema Migration
+    grader: "server.environment:grade_hard"
+
+action_space:
+  type: object
+  properties:
+    tool:
+      type: string
+      enum: [sql, python]
+    command:
+      type: string
+
+observation_space:
+  type: object
+  properties:
+    output:
+      type: string
+    error:
+      type: string
+    current_step:
+      type: integer
+    max_steps:
+      type: integer
+    task_description:
+      type: string
