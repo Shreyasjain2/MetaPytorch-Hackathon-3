@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: openenv-sql-sandbox
+Version: 0.1.0
+Summary: SQL/Data Cleaning Sandbox – An OpenEnv environment for agentic data engineering evaluation
+Requires-Python: >=3.10
+Requires-Dist: openenv-core[core]>=0.2.2
+Requires-Dist: requests>=2.31.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Provides-Extra: inference
+Requires-Dist: openai>=1.0.0; extra == "inference"
+Requires-Dist: requests>=2.31.0; extra == "inference"
+Requires-Dist: groq>=0.4.0; extra == "inference"
