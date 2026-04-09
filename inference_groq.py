@@ -175,7 +175,7 @@ def main():
         api_key=API_KEY or "dummy_key",
     )
 
-    for task in ["easy", "medium", "hard"]:
+    for task in [f"task{i}" for i in range(1, 7)]:
         _run_task_agent(client_llm, args.url, task, args.max_turns)
 
 

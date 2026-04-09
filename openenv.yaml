@@ -13,15 +13,24 @@ description: >
 reward_range: [0.0, 1.0]
 
 tasks:
-  - id: easy
+  - id: task1
     name: Data Triage
     grader: "server.environment:grade_easy"
-  - id: medium
+  - id: task2
     name: Data Cleaning
     grader: "server.environment:grade_medium"
-  - id: hard
+  - id: task3
     name: Schema Migration
     grader: "server.environment:grade_hard"
+  - id: task4
+    name: Log Analysis
+    grader: "server.environment:grade_task4"
+  - id: task5
+    name: Data Imputation
+    grader: "server.environment:grade_task5"
+  - id: task6
+    name: Complex Join & Ranking
+    grader: "server.environment:grade_task6"
 
 action_space:
   type: object

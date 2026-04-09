@@ -34,8 +34,8 @@ except ImportError:
 # Task definitions
 # ---------------------------------------------------------------------------
 TASKS = {
-    "easy": {
-        "id": "easy",
+    "task1": {
+        "id": "task1",
         "description": (
             "Find the total revenue from the 'sales' table for January 2024. "
             "The table has columns: id, product, amount, sale_date (YYYY-MM-DD). "
@@ -44,8 +44,8 @@ TASKS = {
         ),
         "max_steps": 10,
     },
-    "medium": {
-        "id": "medium",
+    "task2": {
+        "id": "task2",
         "description": (
             "The 'users' table has duplicate emails and NULL values in the 'age' column. "
             "Clean the data so that: (1) all emails are lowercase, "
@@ -55,8 +55,8 @@ TASKS = {
         ),
         "max_steps": 15,
     },
-    "hard": {
-        "id": "hard",
+    "task3": {
+        "id": "task3",
         "description": (
             "The 'flat_orders' table has columns: order_id, order_date, "
             "customer_name, customer_email, product, quantity, price. "
@@ -65,6 +65,40 @@ TASKS = {
             "customer_id INTEGER REFERENCES customers(id), order_date TEXT, "
             "product TEXT, quantity INTEGER, price REAL). "
             "Maintain foreign key integrity and migrate all data."
+        ),
+        "max_steps": 20,
+    },
+    "task4": {
+        "id": "task4",
+        "description": (
+            "The 'server_logs' table has: id, ip_address, endpoint, status_code. "
+            "1. Find the exact IP that accessed '/admin' with a 403 status code the most times.\n"
+            "2. Create a new table 'blocked_ips' (id INTEGER PRIMARY KEY, ip_address TEXT).\n"
+            "3. Insert that winning IP into 'blocked_ips'.\n"
+            "4. Delete all log entries belonging to that IP from 'server_logs'.\n"
+            "This task requires multiple steps. You will receive partial rewards for each step completed."
+        ),
+        "max_steps": 15,
+    },
+    "task5": {
+        "id": "task5",
+        "description": (
+            "You have 'subscriptions' (id, user_id, plan_id, start_date, end_date_str) and 'plans' (plan_id, monthly_rate). "
+            "1. Clean 'subscriptions': Replace any invalid 'end_date_str' (like 'NULL', 'N/A', or '') with '2024-12-31'.\n"
+            "2. Create a view 'user_ltv' with columns 'user_id' and 'total_revenue'.\n"
+            "3. Calculate 'total_revenue' inside the view as: (julianday(end_date_str) - julianday(start_date)) / 30.0 * monthly_rate.\n"
+            "Return exactly one JSON command with DONE when you finish the view creation."
+        ),
+        "max_steps": 15,
+    },
+    "task6": {
+        "id": "task6",
+        "description": (
+            "You have 'employees' (id, name, department_id, salary, metadata_json) and 'departments' (id, name). "
+            "1. Add a new column 'total_comp REAL' to 'employees'.\n"
+            "2. Update 'total_comp' = salary + (salary * json_extract(metadata_json, '$.bonus_pct') / 100.0).\n"
+            "3. Create a view 'department_all_stars' with 'department_name' and 'employee_name' containing ONLY the single highest total_comp earner in each department whose json performance field is 'A'.\n"
+            "You must complete all schema modifications and data processing steps."
         ),
         "max_steps": 20,
     },
@@ -135,7 +169,63 @@ def _seed_hard(conn: sqlite3.Connection):
     conn.commit()
 
 
-SEED_FNS = {"easy": _seed_easy, "medium": _seed_medium, "hard": _seed_hard}
+def _seed_task4(conn: sqlite3.Connection):
+    conn.execute("DROP TABLE IF EXISTS server_logs")
+    conn.execute("DROP TABLE IF EXISTS blocked_ips")
+    conn.execute("CREATE TABLE server_logs (id INTEGER PRIMARY KEY, ip_address TEXT, endpoint TEXT, status_code INTEGER)")
+    rows = [
+        (1, "192.168.1.1", "/admin", 403),
+        (2, "10.0.0.5", "/login", 200),
+        (3, "192.168.1.1", "/admin", 403),
+        (4, "172.16.0.2", "/admin", 403),
+        (5, "192.168.1.1", "/dashboard", 200),
+        (6, "10.0.0.5", "/admin", 403),
+        (7, "192.168.1.1", "/admin", 403),
+    ]
+    conn.executemany("INSERT INTO server_logs VALUES (?,?,?,?)", rows)
+    conn.commit()
+
+def _seed_task5(conn: sqlite3.Connection):
+    conn.execute("DROP TABLE IF EXISTS subscriptions")
+    conn.execute("DROP TABLE IF EXISTS plans")
+    conn.execute("CREATE TABLE plans (plan_id INTEGER PRIMARY KEY, monthly_rate REAL)")
+    conn.executemany("INSERT INTO plans VALUES (?,?)", [(1, 10.0), (2, 50.0)])
+    
+    conn.execute("CREATE TABLE subscriptions (id INTEGER PRIMARY KEY, user_id INTEGER, plan_id INTEGER, start_date TEXT, end_date_str TEXT)")
+    rows = [
+        (1, 101, 1, "2024-11-01", "2024-12-01"),
+        (2, 102, 2, "2024-10-02", "NULL"),
+        (3, 103, 1, "2024-12-01", ""),
+        (4, 101, 2, "2024-12-01", "N/A"),
+    ]
+    conn.executemany("INSERT INTO subscriptions VALUES (?,?,?,?,?)", rows)
+    conn.commit()
+
+def _seed_task6(conn: sqlite3.Connection):
+    conn.execute("DROP TABLE IF EXISTS employees")
+    conn.execute("DROP TABLE IF EXISTS departments")
+    conn.execute("CREATE TABLE departments (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.execute("CREATE TABLE employees (id INTEGER PRIMARY KEY, name TEXT, department_id INTEGER, salary REAL, metadata_json TEXT)")
+    deps = [(1, "Engineering"), (2, "Sales")]
+    conn.executemany("INSERT INTO departments VALUES (?,?)", deps)
+    emps = [
+        (1, "Alice", 1, 120000, '{"bonus_pct": 10, "performance": "A"}'),
+        (2, "Bob", 1, 150000, '{"bonus_pct": 5, "performance": "B"}'),
+        (3, "Charlie", 1, 100000, '{"bonus_pct": 50, "performance": "A"}'),
+        (4, "Dave", 2, 80000, '{"bonus_pct": 20, "performance": "A"}'),
+        (5, "Eve", 2, 95000, '{"bonus_pct": 0, "performance": "A"}'),
+    ]
+    conn.executemany("INSERT INTO employees VALUES (?,?,?,?,?)", emps)
+    conn.commit()
+
+SEED_FNS = {
+    "task1": _seed_easy, 
+    "task2": _seed_medium, 
+    "task3": _seed_hard,
+    "task4": _seed_task4,
+    "task5": _seed_task5,
+    "task6": _seed_task6
+}
 
 # ---------------------------------------------------------------------------
 # Graders
@@ -233,7 +323,98 @@ def grade_hard(conn: sqlite3.Connection, last_output: str) -> float:
     return round(score, 2)
 
 
-GRADERS = {"easy": grade_easy, "medium": grade_medium, "hard": grade_hard}
+def grade_task4(conn: sqlite3.Connection, last_output: str) -> float:
+    score = 0.0
+    try:
+        cur = conn.execute("PRAGMA table_info(blocked_ips)")
+        if len(cur.fetchall()) >= 2:
+            score += 0.2
+        
+        cur = conn.execute("SELECT ip_address FROM blocked_ips")
+        ips = [r[0] for r in cur.fetchall()]
+        if "192.168.1.1" in ips:
+            score += 0.3
+        elif len(ips) > 0:
+            score -= 0.1
+            
+        cur = conn.execute("SELECT COUNT(*) FROM server_logs WHERE ip_address = '192.168.1.1'")
+        if cur.fetchone()[0] == 0:
+            score += 0.3
+            
+        cur = conn.execute("SELECT COUNT(*) FROM server_logs WHERE ip_address != '192.168.1.1'")
+        if cur.fetchone()[0] == 3:
+            score += 0.2
+        else:
+            score -= 0.2
+    except Exception:
+        pass
+    return round(max(0.0, score), 2)
+
+def grade_task5(conn: sqlite3.Connection, last_output: str) -> float:
+    score = 0.0
+    try:
+        cur = conn.execute("SELECT COUNT(*) FROM subscriptions WHERE end_date_str IN ('NULL', 'N/A', '')")
+        if cur.fetchone()[0] == 0:
+            score += 0.3
+        
+        cur = conn.execute("SELECT user_id, total_revenue FROM user_ltv ORDER BY user_id")
+        rows = cur.fetchall()
+        if len(rows) > 0:
+            score += 0.3
+            
+        actual = {int(r[0]): round(float(r[1]), 0) for r in rows}
+        expected = {101: 60, 102: 150, 103: 10}
+        
+        if actual == expected:
+            score += 0.4
+        else:
+            correct_users = len(set(actual.items()).intersection(set(expected.items())))
+            score += (correct_users * 0.1)
+            if correct_users == 0 and len(rows) > 0:
+                score -= 0.1
+                
+    except Exception:
+        pass
+    return round(max(0.0, score), 2)
+
+def grade_task6(conn: sqlite3.Connection, last_output: str) -> float:
+    score = 0.0
+    try:
+        cur = conn.execute("PRAGMA table_info(employees)")
+        cols = {r[1] for r in cur.fetchall()}
+        if "total_comp" in cols:
+            score += 0.2
+            
+            cur = conn.execute("SELECT name, total_comp FROM employees")
+            comps = {r[0]: round(float(r[1]), 0) for r in cur.fetchall() if r[1] is not None}
+            if comps.get("Charlie") == 150000 and comps.get("Alice") == 132000:
+                score += 0.3
+            elif len(comps) > 0:
+                score -= 0.1
+        
+        cur = conn.execute("SELECT department_name, employee_name FROM department_all_stars")
+        rows = set(cur.fetchall())
+        expected = {("Engineering", "Charlie"), ("Sales", "Dave")}
+        if rows == expected:
+            score += 0.5
+        elif len(rows) > 0:
+            correct = len(rows.intersection(expected))
+            score += correct * 0.2
+            if correct == 0:
+                score -= 0.1
+                
+    except Exception:
+        pass
+    return round(max(0.0, score), 2)
+
+GRADERS = {
+    "task1": grade_easy, 
+    "task2": grade_medium, 
+    "task3": grade_hard,
+    "task4": grade_task4,
+    "task5": grade_task5,
+    "task6": grade_task6
+}
 
 # ---------------------------------------------------------------------------
 # Environment
@@ -253,7 +434,7 @@ class SqlSandboxEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._db_path = os.path.join(tempfile.gettempdir(), f"sqlsandbox_{uuid4().hex[:8]}.db")
         self._conn: sqlite3.Connection | None = None
-        self._task_id = os.environ.get("TASK_ID", "easy")
+        self._task_id = os.environ.get("TASK_ID", "task1")
         self._task = TASKS[self._task_id]
         self._max_steps = self._task["max_steps"]
         self._done = False
@@ -323,7 +504,7 @@ class SqlSandboxEnvironment(Environment):
 
         # 2. Update task context from kwargs (primary) or environment (fallback)
         # This is the fix for the 'Easy task persistence' bug.
-        self._task_id = kwargs.get("task_id", os.environ.get("TASK_ID", "easy"))
+        self._task_id = kwargs.get("task_id", os.environ.get("TASK_ID", "task1"))
         self._task = TASKS[self._task_id]
         self._max_steps = self._task["max_steps"]
 
